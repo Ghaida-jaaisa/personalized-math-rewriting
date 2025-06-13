@@ -1,245 +1,228 @@
-"use client";
+"use client"
+import { useState } from "react"
 
-// 1. Imports
-// React and hooks
-import type React from "react";
-import { useState } from "react";
+// Icons
+import { RefreshCw, Lightbulb, Edit, Save, Volume2, Bookmark } from "lucide-react"
+import Header from "@/components/header"
 
-// UI Components
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input"; // Assuming you have a reusable Input component
-
-// Icons (grouped for clarity)
-import {
-  RefreshCw,
-  Gamepad2,
-  Smile,
-  ClubIcon as Football,
-  Cat,
-  Lightbulb, // New icon for hints
-} from "lucide-react";
-
-// Custom Components (grouped)
-// import ImageUploader from "@/components/image-uploader"; // Keep commented if not in use
-import ActionButtons from "@/components/action-buttons";
-import ProblemDisplay from "@/components/problem-display";
-import Header from "@/components/header";
-
-// 2. Type Definitions - No longer strictly needed for 'Theme' if it's just a string input
-// The old 'Theme' type is kept for reference but not directly used for theme selection.
-
-// 3. Main Component Definition
 export default function MathProblemPersonalizer() {
-  // 4. State Management
-  // Group related state variables together
-  const [originalProblem, setOriginalProblem] = useState<string>("");
-  const [rewrittenProblem, setRewrittenProblem] = useState<string>("");
-  const [customThemeInput, setCustomThemeInput] = useState<string>("football"); // State for user's theme input
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null); // State for error messages
+  // State Management
+  const [originalProblem, setOriginalProblem] = useState<string>("")
+  const [rewrittenProblem, setRewrittenProblem] = useState<string>("")
+  const [customThemeInput, setCustomThemeInput] = useState<string>("Football")
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // 5. Constants and Configuration Data
-  // Predefined hints for the theme input
-  const themeHints: string[] = [
-    "Football",
-    "Minecraft",
-    "Cooking",
-    "Space Exploration",
-    "Zoo animals",
-  ];
+  // Constants
+  const themeHints: string[] = ["Football", "Minecraft", "Cooking", "Space Exploration", "Zoo animals"]
 
-  // 6. Event Handlers and Functions
-  // Functions that handle user interactions or component logic
+  // Check if we have a rewritten problem to enable action buttons
+  const hasRewrittenProblem = rewrittenProblem.trim().length > 0
 
-  // Placeholder for image upload handling (if ImageUploader is used)
-  const handleImageUpload = (text: string) => {
-    setOriginalProblem(text);
-  };
-
-  // Handles updating the custom theme input when a hint button is clicked
+  // Event Handlers
   const handleHintClick = (hint: string) => {
-    setCustomThemeInput(hint);
-  };
+    setCustomThemeInput(hint)
+  }
 
   const handleRewrite = async () => {
     if (!originalProblem) {
-      setError("Please provide an original math problem first.");
-      return;
+      setError("Please provide an original math problem first.")
+      return
     }
     if (!customThemeInput.trim()) {
-      setError("Please enter a theme for the rewrite.");
-      return;
+      setError("Please enter a theme for the rewrite.")
+      return
     }
 
-    setIsLoading(true);
-    setError(null); // Clear previous errors
+    setIsLoading(true)
+    setError(null)
 
     try {
-      // Construct the prompt for the LLM
-      const prompt = `Rewrite the following math problem using a '${customThemeInput}' theme. Ensure the core mathematical problem (numbers and operation) remains the same, but change the context and characters to fit the theme. The original problem is: "${originalProblem}"`;
-
-      let chatHistory = [];
-      chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-      const payload = { contents: chatHistory };
-      const apiKey = ""; // Canvas will provide this in runtime
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-      const response = await fetch(apiUrl, {
+      const response = await fetch("http://127.0.0.1:8000/api/rewrite-problem", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          problem: originalProblem,
+          theme: customThemeInput,
+        }),
+      })
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.statusText}`);
+        throw new Error(`API error: ${response.status} ${response.statusText}`)
       }
 
-      const result = await response.json();
+      const result = await response.json()
 
-      if (
-        result.candidates &&
-        result.candidates.length > 0 &&
-        result.candidates[0].content &&
-        result.candidates[0].content.parts &&
-        result.candidates[0].content.parts.length > 0
-      ) {
-        const text = result.candidates[0].content.parts[0].text;
-        setRewrittenProblem(text);
+      if (result.rewritten_problem) {
+        setRewrittenProblem(result.rewritten_problem)
+      } else if (result.problem) {
+        setRewrittenProblem(result.problem)
+      } else if (typeof result === "string") {
+        setRewrittenProblem(result)
       } else {
-        setError(
-          "Failed to get a rewritten problem from the AI. Please try again."
-        );
-        setRewrittenProblem(
-          "Could not rewrite the problem. Please check your input and try again."
-        );
+        setError("Unexpected response format from API")
+        setRewrittenProblem("Could not parse the API response. Please try again.")
       }
     } catch (err) {
-      console.error("Error rewriting problem:", err);
-      setError(
-        `Failed to rewrite the problem: ${
-          err instanceof Error ? err.message : String(err)
-        }. Please try again.`
-      );
-      setRewrittenProblem(
-        "An error occurred during rewriting. Please try again."
-      );
+      console.error("Error rewriting problem:", err)
+      if (err instanceof Error) {
+        if (err.message.includes("fetch")) {
+          setError("Could not connect to the local API. Make sure your server is running on http://127.0.0.1:8000")
+        } else {
+          setError(`Failed to rewrite the problem: ${err.message}`)
+        }
+      } else {
+        setError("An unexpected error occurred. Please try again.")
+      }
+      setRewrittenProblem("An error occurred during rewriting. Please try again.")
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   const handleTextToSpeech = () => {
-    if (!rewrittenProblem) return;
+    if (!rewrittenProblem) return
 
-    // Use the Web Speech API for text-to-speech
-    const speech = new SpeechSynthesisUtterance(rewrittenProblem);
-    speech.rate = 0.9;
-    speech.pitch = 1;
-    window.speechSynthesis.speak(speech);
-  };
+    const speech = new SpeechSynthesisUtterance(rewrittenProblem)
+    speech.rate = 0.9
+    speech.pitch = 1
+    window.speechSynthesis.speak(speech)
+  }
 
   const handleSave = () => {
-    if (!rewrittenProblem) return;
+    if (!rewrittenProblem) return
 
-    // Create a text file and trigger download
-    const blob = new Blob([rewrittenProblem], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `math-problem-themed.txt`; // Generic name since theme is custom
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+    const blob = new Blob([rewrittenProblem], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `math-problem-themed.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
 
-  // 7. Render Logic (JSX)
-  // The structure of the component's output
   return (
     <div className="space-y-6 py-4">
       <Header />
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="space-y-6">
-          <Card className="p-4">
-            <h2 className="text-xl font-bold mb-2">Original Problem</h2>
-            <div className="min-h-24 p-4 bg-amber-50 rounded-md">
-              {
-                <p className="text-gray-400 italic">
-                  {/* Upload or take a photo of a math problem to get started */}
-                </p>
-              }
-              {/* For demonstration, allow manual input of original problem */}
+          {/* Original Problem Card */}
+          <div className="bg-white rounded-lg p-6 shadow-sm">
+            <h2 className="text-xl font-bold mb-4 text-black">Original Problem</h2>
+            <div className="relative">
               <textarea
-                className="w-full mt-2 p-2 border rounded-md"
+                className="w-full p-4 border border-gray-200 rounded-md bg-gray-50 text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Type the original problem here..."
                 value={originalProblem}
                 onChange={(e) => setOriginalProblem(e.target.value)}
-                rows={3}
+                rows={4}
               />
+              <div className="absolute bottom-3 right-3 flex gap-2">
+                <Edit className="h-4 w-4 text-gray-400" />
+                <Save className="h-4 w-4 text-green-500" />
+              </div>
             </div>
-          </Card>
+          </div>
 
+          {/* Theme Selection */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">
-              Choose a Theme or Enter Your Own:
-            </h3>
-            <Input
+            <h3 className="text-lg font-semibold text-white">Choose a Theme or Enter Your Own:</h3>
+
+            <input
               type="text"
-              placeholder="e.g., 'Swimming', 'Cooking', 'Football'"
               value={customThemeInput}
               onChange={(e) => setCustomThemeInput(e.target.value)}
-              className="w-full p-2 border rounded-md"
+              className="w-full p-4 border border-gray-200 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="e.g., 'Swimming', 'Cooking', 'Football'"
             />
 
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-wrap gap-3 justify-start">
               {themeHints.map((hint, index) => (
-                <Button
+                <button
                   key={index}
                   onClick={() => handleHintClick(hint)}
-                  variant="outline"
-                  className="rounded-full px-4 py-2 text-sm flex items-center space-x-1 hover:bg-gray-100 transition-colors"
+                  className="bg-white rounded-full px-4 py-2 text-sm flex items-center gap-2 text-gray-700 hover:bg-gray-50 transition-colors shadow-sm border border-gray-200"
                 >
                   <Lightbulb className="h-4 w-4 text-yellow-500" />
                   <span>{hint}</span>
-                </Button>
+                </button>
               ))}
             </div>
 
             {error && (
-              <div className="text-red-500 text-sm p-2 bg-red-100 rounded-md">
-                {error}
-              </div>
+              <div className="text-red-600 text-sm p-3 bg-red-50 rounded-md border border-red-200">{error}</div>
             )}
 
-            <Button
+            {/* Rewrite Button */}
+            <button
               onClick={handleRewrite}
-              disabled={
-                !originalProblem || !customThemeInput.trim() || isLoading
-              }
-              className="w-full bg-orange-400 hover:bg-orange-500 text-white text-lg py-6"
+              disabled={!originalProblem || !customThemeInput.trim() || isLoading}
+              className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white text-lg py-4 px-6 rounded-md font-semibold transition-colors shadow-sm"
             >
               {isLoading ? (
-                <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+                <div className="flex items-center justify-center gap-2">
+                  <RefreshCw className="h-5 w-5 animate-spin" />
+                  <span>Rewriting...</span>
+                </div>
               ) : (
                 "Rewrite!"
               )}
-            </Button>
+            </button>
           </div>
         </div>
 
-        {/* ProblemDisplay and ActionButtons are now grouped and ProblemDisplay comes first */}
+        {/* Right Column */}
         <div className="space-y-6">
-          <ProblemDisplay
-            rewrittenProblem={rewrittenProblem}
-            onListen={handleTextToSpeech}
-            onRephrase={handleRewrite}
-            onSave={handleSave}
-          />
-          {/* <ActionButtons /> */}
+          {/* Personalized Problem Card */}
+          <div className="bg-amber-50 rounded-lg p-6 shadow-sm min-h-[300px]">
+            <h2 className="text-xl font-bold mb-4 text-black">Your Personalized Problem</h2>
+            <div className="text-gray-700 leading-relaxed">
+              {rewrittenProblem || "Your personalized math problem will appear here after you click 'Rewrite!'"}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="grid grid-cols-3 gap-4">
+            <button
+              onClick={handleTextToSpeech}
+              disabled={!hasRewrittenProblem}
+              className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 transition-colors flex flex-col items-center gap-2"
+            >
+              <Volume2 className={`h-6 w-6 ${hasRewrittenProblem ? "text-blue-500" : "text-gray-400"}`} />
+              <span className={`text-sm ${hasRewrittenProblem ? "text-gray-700" : "text-gray-400"}`}>Read for me</span>
+            </button>
+
+            <button
+              onClick={handleRewrite}
+              disabled={!originalProblem || !customThemeInput.trim() || isLoading || !hasRewrittenProblem}
+              className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 transition-colors flex flex-col items-center gap-2"
+            >
+              {isLoading ? (
+                <RefreshCw className="h-6 w-6 text-purple-500 animate-spin" />
+              ) : (
+                <RefreshCw className={`h-6 w-6 ${hasRewrittenProblem ? "text-purple-500" : "text-gray-400"}`} />
+              )}
+              <span className={`text-sm ${hasRewrittenProblem ? "text-gray-700" : "text-gray-400"}`}>
+                Try another theme
+              </span>
+            </button>
+
+            <button
+              onClick={handleSave}
+              disabled={!hasRewrittenProblem}
+              className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 transition-colors flex flex-col items-center gap-2"
+            >
+              <Bookmark className={`h-6 w-6 ${hasRewrittenProblem ? "text-orange-500" : "text-gray-400"}`} />
+              <span className={`text-sm ${hasRewrittenProblem ? "text-gray-700" : "text-gray-400"}`}>Save problem</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  );
+  )
 }
