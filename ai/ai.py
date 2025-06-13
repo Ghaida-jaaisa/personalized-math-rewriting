@@ -4,24 +4,29 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY")) 
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def rewrite_math_problem(problem: str, theme: str) -> str:
-    prompt = f"""
-You are an AI that rewrites math word problems using a student's personal interest.
+    system_message = (
+        "You are a helpful assistant that rewrites math word problems by changing only the context "
+        "to match a student's interest. Do not add introductions, phrases like 'Sure!', 'Let's reframe...', "
+        "'Imagine', or any additional context. Do not add formatting (like bold or markdown). "
+        "Return only the rewritten problem sentence. Keep the difficulty and structure the same."
+    )
 
-Rephrase the following math problem using the theme "{theme}" in a **simple and direct** way. 
-Do not add any storytelling, titles, introductions, or extra descriptions. Keep the structure and difficulty the same.
-Do not include any extra words or formatting. Only return the rewritten problem sentence.
+    user_prompt = (
+        f"Rewrite this math problem using the theme '{theme}'. "
+        f"Only return the final rewritten sentence, and nothing else.\n\n"
+        f"Original: {problem}\nRewritten:"
+    )
 
-Original:
-{problem}
-
-Rewritten:
-"""
-    response = client.chat.completions.create(  
+    response = client.chat.completions.create(
         model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": user_prompt}
+        ],
         temperature=0.7
     )
+
     return response.choices[0].message.content.strip()
