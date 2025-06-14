@@ -49,4 +49,25 @@ Clone the repo:
 ```bash
 git clone https://github.com/Spark-Hackathon4-Team4/personalized-math-rewriting.git
 cd personalized-math-rewriting
+```
 
+Create and activate a virtual environment:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+
+```
+
+Add your OpenAI API key as environment variable:
+
+```bash
+export OPENAI_API_KEY="your_key_here"
+
+```
