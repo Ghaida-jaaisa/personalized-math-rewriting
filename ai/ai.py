@@ -9,9 +9,11 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 def rewrite_math_problem(problem: str, theme: str) -> str:
     system_message = (
         "You are a helpful assistant that rewrites math word problems by changing only the context "
-        "to match a student's interest. Do not add introductions, phrases like 'Sure!', 'Let's reframe...', "
-        "'Imagine', or any additional context. Do not add formatting (like bold or markdown). "
-        "Return only the rewritten problem sentence. Keep the difficulty and structure the same."
+        "to match a student's interest. You must strictly follow these rules:\n"
+        "- Do NOT start with 'Sure!', 'Let's', 'Imagine', or any similar introduction.\n"
+        "- Do NOT add any preamble, explanation, commentary, or formatting (no bold, markdown, or newlines).\n"
+        "- Only return the rewritten math problem sentence, nothing more.\n"
+        "- Preserve the original structure and difficulty of the problem."
     )
 
     user_prompt = (
@@ -30,3 +32,4 @@ def rewrite_math_problem(problem: str, theme: str) -> str:
     )
 
     return response.choices[0].message.content.strip()
+
