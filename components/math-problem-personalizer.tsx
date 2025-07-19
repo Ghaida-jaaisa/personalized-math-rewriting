@@ -44,6 +44,8 @@ export default function MathProblemPersonalizer() {
     setError(null)
 
     try {
+      // Call the API to rewrite the problem
+      // Replace with your actual API endpoint
       
       // const response = await fetch("http://127.0.0.1:8000/api/rewrite-problem", {
       const response = await fetch("https://math-rewriter-api.onrender.com/api/rewrite-problem", {
